@@ -111,6 +111,12 @@
       transform: translateY(0);
     }
 
+    button:disabled,
+    input:disabled {
+      cursor: not-allowed;
+      opacity: 0.65;
+    }
+
     .add-button {
       flex-shrink: 0;
       background: #55e6b5;
@@ -137,11 +143,96 @@
       overflow-wrap: anywhere;
     }
 
+    .result.is-winner {
+      animation: winner-glow 650ms ease-out;
+    }
+
+    @keyframes winner-glow {
+      0% {
+        box-shadow: 0 0 0 rgb(255 226 122 / 0%);
+        transform: scale(1);
+      }
+      45% {
+        box-shadow: 0 0 28px rgb(255 226 122 / 45%);
+        transform: scale(1.03);
+      }
+      100% {
+        box-shadow: 0 0 0 rgb(255 226 122 / 0%);
+        transform: scale(1);
+      }
+    }
+
+    .history-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .history-header h2 {
+      margin-bottom: 0.75rem;
+    }
+
+    .clear-button {
+      flex-shrink: 0;
+      padding: 0.5rem 0.7rem;
+      background: #414257;
+      color: #f4f3ff;
+      font-size: 0.8rem;
+    }
+
+    .history-list {
+      display: grid;
+      gap: 0.6rem;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .history-list li,
+    .empty-history {
+      border: 1px solid #323347;
+      border-radius: 12px;
+      padding: 0.75rem 1rem;
+      background: #202132;
+    }
+
+    .history-list li {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .history-time {
+      flex-shrink: 0;
+      color: #aaaabd;
+      font-size: 0.8rem;
+      text-align: right;
+    }
+
+    .empty-history {
+      margin: 0;
+      color: #aaaabd;
+      font-size: 0.9rem;
+      text-align: center;
+    }
+
     .remove-button {
       flex-shrink: 0;
       padding: 0.55rem 0.75rem;
       background: #ff7185;
       font-size: 0.85rem;
+    }
+
+    .game-details {
+      display: grid;
+      gap: 0.2rem;
+    }
+
+    .game-genre {
+      color: #aaaabd;
+      font-size: 0.8rem;
     }
 
     .empty-list,
@@ -196,6 +287,7 @@
       *::after {
         scroll-behavior: auto !important;
         transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
       }
     }
   </style>
@@ -230,11 +322,45 @@
     <!-- Random selection and result message -->
     <button class="decide-button" id="decide-button" type="button">Decide for Me</button>
     <p class="result" id="result" aria-live="polite">Your next game will appear here.</p>
+
+    <!-- Recent results are saved in this browser and shown newest first. -->
+    <section aria-labelledby="history-heading">
+      <div class="history-header">
+        <h2 id="history-heading">Recent Decisions</h2>
+        <button class="clear-button" id="clear-history-button" type="button">Clear History</button>
+      </div>
+      <ul class="history-list" id="history-list"></ul>
+      <p class="empty-history" id="empty-history">No decisions yet</p>
+    </section>
   </main>
 
   <script>
-    // Store the game names and connect the page elements.
-    const games = [];
+    // These starter games are used only the first time the app runs.
+    const starterGames = [
+      { name: "Valorant", genre: "Tactical shooter" },
+      { name: "Counter-Strike 2", genre: "Tactical shooter" },
+      { name: "Fortnite", genre: "Battle royale" },
+      { name: "Apex Legends", genre: "Battle royale" },
+      { name: "League of Legends", genre: "MOBA" },
+      { name: "Marvel Rivals", genre: "Hero shooter" },
+      { name: "PUBG: Battlegrounds", genre: "Battle royale" },
+      { name: "Valheim", genre: "Survival" },
+      { name: "Enshrouded", genre: "Survival RPG" },
+      { name: "Warframe", genre: "Action RPG" },
+      { name: "ARC Raiders", genre: "Extraction shooter" },
+      { name: "Bongo Cat", genre: "Casual" },
+      { name: "Torchlight: Infinite", genre: "Action RPG" },
+      { name: "No Rest for the Wicked", genre: "Action RPG" },
+      { name: "The Last Caretaker", genre: "Survival" }
+    ];
+    const gamesStorageKey = "gameDeciderGames";
+    const historyStorageKey = "gameDeciderHistory";
+    const savedGames = localStorage.getItem(gamesStorageKey);
+    const games = savedGames === null
+      ? starterGames.map((game) => ({ ...game }))
+      : JSON.parse(savedGames);
+    let history = JSON.parse(localStorage.getItem(historyStorageKey) || "[]");
+    let isAnimating = false;
     const form = document.querySelector("#add-form");
     const gameInput = document.querySelector("#game-input");
     const gameList = document.querySelector("#game-list");
@@ -242,37 +368,95 @@
     const feedback = document.querySelector("#feedback");
     const decideButton = document.querySelector("#decide-button");
     const result = document.querySelector("#result");
+    const historyList = document.querySelector("#history-list");
+    const emptyHistory = document.querySelector("#empty-history");
+    const clearHistoryButton = document.querySelector("#clear-history-button");
 
-    // Rebuild the visible list whenever a game is added or removed.
+    // Save the whole game list so removed games and an intentionally empty list stay saved.
+    function saveGames() {
+      localStorage.setItem(gamesStorageKey, JSON.stringify(games));
+    }
+
+    // Rebuild the visible list and include each game's genre.
     function renderGames() {
       gameList.replaceChildren();
       emptyList.hidden = games.length > 0;
+      gameInput.disabled = isAnimating;
+      form.querySelector("button").disabled = isAnimating;
 
       games.forEach((game, index) => {
         const item = document.createElement("li");
+        const details = document.createElement("span");
         const name = document.createElement("span");
+        const genre = document.createElement("span");
         const removeButton = document.createElement("button");
 
-        name.textContent = game;
+        name.textContent = game.name;
+        genre.className = "game-genre";
+        genre.textContent = game.genre;
+        details.className = "game-details";
+        details.append(name, genre);
         removeButton.className = "remove-button";
         removeButton.type = "button";
         removeButton.textContent = "Remove";
-        removeButton.setAttribute("aria-label", `Remove ${game}`);
+        removeButton.disabled = isAnimating;
+        removeButton.setAttribute("aria-label", `Remove ${game.name}`);
         removeButton.addEventListener("click", () => {
+          if (isAnimating) return;
           games.splice(index, 1);
+          saveGames();
           renderGames();
           feedback.textContent = "";
           result.textContent = "Your next game will appear here.";
         });
 
-        item.append(name, removeButton);
+        item.append(details, removeButton);
         gameList.append(item);
       });
+    }
+
+    // Display the five most recent picks, with their local date and time.
+    function renderHistory() {
+      historyList.replaceChildren();
+      emptyHistory.hidden = history.length > 0;
+
+      history.forEach((decision) => {
+        const item = document.createElement("li");
+        const gameName = document.createElement("span");
+        const time = document.createElement("time");
+
+        gameName.textContent = decision.name;
+        time.className = "history-time";
+        time.textContent = decision.time;
+        item.append(gameName, time);
+        historyList.append(item);
+      });
+    }
+
+    // Keep the stored history limited to the five entries shown on the page.
+    function saveHistory() {
+      localStorage.setItem(historyStorageKey, JSON.stringify(history));
+    }
+
+    // Finish the spin, show a brief highlight, and save only its final winner.
+    function revealWinner(winner) {
+      result.textContent = `You should play: ${winner.name}!`;
+      result.classList.remove("is-winner");
+      void result.offsetWidth;
+      result.classList.add("is-winner");
+      history.unshift({ name: winner.name, time: new Date().toLocaleString() });
+      history = history.slice(0, 5);
+      saveHistory();
+      renderHistory();
+      isAnimating = false;
+      decideButton.disabled = false;
+      renderGames();
     }
 
     // Submit handles both clicking Add Game and pressing Enter in the input.
     form.addEventListener("submit", (event) => {
       event.preventDefault();
+      if (isAnimating) return;
       const game = gameInput.value.trim();
 
       if (!game) {
@@ -282,7 +466,7 @@
       }
 
       const alreadyExists = games.some(
-        (existingGame) => existingGame.toLocaleLowerCase() === game.toLocaleLowerCase()
+        (existingGame) => existingGame.name.toLocaleLowerCase() === game.toLocaleLowerCase()
       );
 
       if (alreadyExists) {
@@ -291,7 +475,8 @@
         return;
       }
 
-      games.push(game);
+      games.push({ name: game, genre: "Custom" });
+      saveGames();
       gameInput.value = "";
       feedback.textContent = "";
       result.textContent = "Your next game will appear here.";
@@ -299,16 +484,54 @@
       gameInput.focus();
     });
 
-    // Choose one game at random, or explain how to proceed when the list is empty.
+    // Animate through choices for about three seconds unless reduced motion is preferred.
     decideButton.addEventListener("click", () => {
+      if (isAnimating) return;
       if (games.length === 0) {
         result.textContent = "Please add at least one game first.";
         return;
       }
 
-      const choice = games[Math.floor(Math.random() * games.length)];
-      result.textContent = `You should play: ${choice}!`;
+      const winner = games[Math.floor(Math.random() * games.length)];
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        revealWinner(winner);
+        return;
+      }
+
+      isAnimating = true;
+      decideButton.disabled = true;
+      renderGames();
+      result.classList.remove("is-winner");
+      const startTime = performance.now();
+      const duration = 3000;
+
+      function spin() {
+        const elapsed = performance.now() - startTime;
+        if (elapsed >= duration) {
+          revealWinner(winner);
+          return;
+        }
+
+        const preview = games[Math.floor(Math.random() * games.length)];
+        result.textContent = `Choosing... ${preview.name}`;
+        const progress = elapsed / duration;
+        const nextDelay = 45 + (progress * progress * 240);
+        window.setTimeout(spin, nextDelay);
+      }
+
+      spin();
     });
+
+    clearHistoryButton.addEventListener("click", () => {
+      history = [];
+      saveHistory();
+      renderHistory();
+    });
+
+    // Persist the starter list on first load, then restore both saved sections.
+    if (savedGames === null) saveGames();
+    renderGames();
+    renderHistory();
   </script>
 </body>
 </html>
