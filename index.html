@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#10111b">
+  <title>Game Decider</title>
+  <style>
+    /* Page layout and gaming-inspired colors */
+    :root {
+      color-scheme: dark;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #f4f3ff;
+      background: #10111b;
+      font-synthesis: none;
+      text-rendering: optimizeLegibility;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      display: grid;
+      min-height: 100vh;
+      min-height: 100dvh;
+      margin: 0;
+      padding: 2rem 1rem;
+      place-items: center;
+      background:
+        radial-gradient(ellipse at 50% 0%, rgb(114 64 210 / 17%), transparent 55%),
+        #10111b;
+    }
+
+    main {
+      width: min(100%, 560px);
+      padding: clamp(1.5rem, 6vw, 3rem);
+      border: 1px solid #2c2d40;
+      border-radius: 24px;
+      background: rgb(25 26 40 / 92%);
+      box-shadow: 0 24px 80px rgb(0 0 0 / 30%);
+    }
+
+    header {
+      margin-bottom: 2rem;
+      text-align: center;
+    }
+
+    h1 {
+      margin: 0;
+      color: #bba4ff;
+      font-size: clamp(2.5rem, 10vw, 4rem);
+      letter-spacing: -0.06em;
+      line-height: 1.1;
+    }
+
+    header p {
+      margin: 0.75rem 0 0;
+      color: #b8b8c9;
+      font-size: 1rem;
+    }
+
+    h2 {
+      margin: 1.75rem 0 0.75rem;
+      font-size: 1.05rem;
+    }
+
+    .add-form {
+      display: flex;
+      gap: 0.65rem;
+    }
+
+    input {
+      min-width: 0;
+      flex: 1;
+      border: 1px solid #414257;
+      border-radius: 12px;
+      padding: 0.85rem 1rem;
+      background: #141520;
+      color: #f4f3ff;
+      font: inherit;
+    }
+
+    input::placeholder {
+      color: #88899d;
+    }
+
+    input:focus-visible,
+    button:focus-visible {
+      outline: 3px solid #bba4ff;
+      outline-offset: 3px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 12px;
+      padding: 0.8rem 1rem;
+      color: #10111b;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+      transition: filter 150ms ease, transform 150ms ease;
+    }
+
+    button:hover {
+      filter: brightness(1.1);
+      transform: translateY(-1px);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    .add-button {
+      flex-shrink: 0;
+      background: #55e6b5;
+    }
+
+    .game-list {
+      display: grid;
+      gap: 0.6rem;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .game-list li {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      min-height: 3.25rem;
+      border: 1px solid #323347;
+      border-radius: 12px;
+      padding: 0.5rem 0.6rem 0.5rem 1rem;
+      background: #202132;
+      overflow-wrap: anywhere;
+    }
+
+    .remove-button {
+      flex-shrink: 0;
+      padding: 0.55rem 0.75rem;
+      background: #ff7185;
+      font-size: 0.85rem;
+    }
+
+    .empty-list,
+    .feedback {
+      color: #aaaabd;
+      font-size: 0.9rem;
+    }
+
+    .empty-list {
+      margin: 0;
+      padding: 1rem;
+      border: 1px dashed #414257;
+      border-radius: 12px;
+      text-align: center;
+    }
+
+    .feedback {
+      min-height: 1.4em;
+      margin: 0.65rem 0 0;
+    }
+
+    .decide-button {
+      width: 100%;
+      margin-top: 1.5rem;
+      padding: 1rem;
+      background: #a98aff;
+      font-size: 1.05rem;
+    }
+
+    .result {
+      min-height: 3.5rem;
+      margin: 1rem 0 0;
+      border-radius: 14px;
+      padding: 1rem;
+      background: #141520;
+      color: #ffe27a;
+      font-size: 1.15rem;
+      font-weight: 700;
+      text-align: center;
+      overflow-wrap: anywhere;
+    }
+
+    @media (max-width: 420px) {
+      .add-form {
+        flex-direction: column;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <!-- App title and subtitle -->
+    <header>
+      <h1>Game Decider</h1>
+      <p>Can’t decide what to play? Let us choose!</p>
+    </header>
+
+    <!-- Game entry form and game list -->
+    <form class="add-form" id="add-form">
+      <input
+        id="game-input"
+        type="text"
+        placeholder="Enter a game name"
+        aria-label="Game name"
+        autocomplete="off"
+      >
+      <button class="add-button" type="submit">Add Game</button>
+    </form>
+    <p class="feedback" id="feedback" aria-live="polite"></p>
+
+    <section aria-labelledby="games-heading">
+      <h2 id="games-heading">Your games</h2>
+      <ul class="game-list" id="game-list"></ul>
+      <p class="empty-list" id="empty-list">No games added yet. Add one above!</p>
+    </section>
+
+    <!-- Random selection and result message -->
+    <button class="decide-button" id="decide-button" type="button">Decide for Me</button>
+    <p class="result" id="result" aria-live="polite">Your next game will appear here.</p>
+  </main>
+
+  <script>
+    // Store the game names and connect the page elements.
+    const games = [];
+    const form = document.querySelector("#add-form");
+    const gameInput = document.querySelector("#game-input");
+    const gameList = document.querySelector("#game-list");
+    const emptyList = document.querySelector("#empty-list");
+    const feedback = document.querySelector("#feedback");
+    const decideButton = document.querySelector("#decide-button");
+    const result = document.querySelector("#result");
+
+    // Rebuild the visible list whenever a game is added or removed.
+    function renderGames() {
+      gameList.replaceChildren();
+      emptyList.hidden = games.length > 0;
+
+      games.forEach((game, index) => {
+        const item = document.createElement("li");
+        const name = document.createElement("span");
+        const removeButton = document.createElement("button");
+
+        name.textContent = game;
+        removeButton.className = "remove-button";
+        removeButton.type = "button";
+        removeButton.textContent = "Remove";
+        removeButton.setAttribute("aria-label", `Remove ${game}`);
+        removeButton.addEventListener("click", () => {
+          games.splice(index, 1);
+          renderGames();
+          feedback.textContent = "";
+          result.textContent = "Your next game will appear here.";
+        });
+
+        item.append(name, removeButton);
+        gameList.append(item);
+      });
+    }
+
+    // Submit handles both clicking Add Game and pressing Enter in the input.
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const game = gameInput.value.trim();
+
+      if (!game) {
+        feedback.textContent = "Please enter a game name.";
+        gameInput.focus();
+        return;
+      }
+
+      const alreadyExists = games.some(
+        (existingGame) => existingGame.toLocaleLowerCase() === game.toLocaleLowerCase()
+      );
+
+      if (alreadyExists) {
+        feedback.textContent = "That game is already on your list.";
+        gameInput.focus();
+        return;
+      }
+
+      games.push(game);
+      gameInput.value = "";
+      feedback.textContent = "";
+      result.textContent = "Your next game will appear here.";
+      renderGames();
+      gameInput.focus();
+    });
+
+    // Choose one game at random, or explain how to proceed when the list is empty.
+    decideButton.addEventListener("click", () => {
+      if (games.length === 0) {
+        result.textContent = "Please add at least one game first.";
+        return;
+      }
+
+      const choice = games[Math.floor(Math.random() * games.length)];
+      result.textContent = `You should play: ${choice}!`;
+    });
+  </script>
+</body>
+</html>
