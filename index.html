@@ -1,537 +1,628 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#10111b">
-  <title>Game Decider</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#fbf5eb">
+  <meta name="description" content="A local Toronto date-night food and drinks picker.">
+  <title>Eatery Picker — our little Toronto list</title>
   <style>
-    /* Page layout and gaming-inspired colors */
     :root {
-      color-scheme: dark;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      color: #f4f3ff;
-      background: #10111b;
+      color-scheme: light;
+      font-family: "Segoe UI", "Avenir Next", Avenir, system-ui, sans-serif;
+      color: #482b31;
+      background: #fbf5eb;
       font-synthesis: none;
       text-rendering: optimizeLegibility;
+      --cream: #fbf5eb;
+      --paper: #fffdf8;
+      --blush: #f3d9d5;
+      --rose: #a64e5b;
+      --burgundy: #702f3c;
+      --ink: #482b31;
+      --muted: #876f6c;
+      --line: #eadbd2;
+      --green: #537258;
+      --shadow: 0 16px 42px rgb(83 48 42 / 9%);
     }
 
-    * {
-      box-sizing: border-box;
+    * { box-sizing: border-box; }
+    body { min-width: 0; min-height: 100vh; margin: 0; background: radial-gradient(ellipse at 90% 0%, #f6e8df 0, transparent 34rem), var(--cream); }
+    button, input, select, textarea { font: inherit; }
+    button { cursor: pointer; }
+    button:disabled, input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; opacity: .62; }
+    :focus-visible { outline: 3px solid #bd6873; outline-offset: 3px; }
+    .shell { width: min(1120px, calc(100% - 2rem)); margin: 0 auto; padding: 2rem 0 4rem; }
+    .topbar { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 2rem; }
+    .brand { display: flex; align-items: center; gap: .75rem; color: var(--burgundy); font-weight: 750; letter-spacing: -.02em; }
+    .brand-mark { display: grid; width: 2.55rem; height: 2.55rem; place-items: center; border: 1px solid #e8c9c2; border-radius: 50%; background: #fff9f3; font-size: 1.25rem; }
+    .connection { display: flex; align-items: center; gap: .55rem; color: var(--muted); font-size: .88rem; }
+    .connection::before { width: .55rem; height: .55rem; border-radius: 50%; background: #c28c76; content: ""; }
+    .connection[data-state="connected"]::before { background: #648765; }
+    .connection[data-state="error"]::before { background: #b94750; }
+    .hero { display: flex; justify-content: space-between; align-items: end; gap: 2rem; margin-bottom: 1.6rem; }
+    h1 { margin: 0; color: var(--burgundy); font-family: Georgia, "Times New Roman", serif; font-size: clamp(2.6rem, 8vw, 4.5rem); font-weight: 500; letter-spacing: -.055em; line-height: 1; }
+    .hero p { margin: .85rem 0 0; color: var(--muted); font-size: 1.05rem; }
+    .hero-note { max-width: 15rem; color: var(--muted); font-size: .9rem; line-height: 1.5; text-align: right; }
+    .panel, .picker-card, .list-card { border: 1px solid var(--line); border-radius: 20px; background: var(--paper); box-shadow: var(--shadow); }
+    .field { display: grid; gap: .4rem; }
+    .field label { color: var(--ink); font-size: .88rem; font-weight: 650; }
+    .field input, .field select, .field textarea { width: 100%; min-height: 2.8rem; border: 1px solid #ddc9c1; border-radius: 11px; padding: .68rem .78rem; background: #fffefa; color: var(--ink); }
+    .field textarea { min-height: 5rem; resize: vertical; }
+    .eatery-form { display: grid; gap: 1rem; }
+    .button { display: inline-flex; min-height: 2.65rem; justify-content: center; align-items: center; gap: .4rem; border: 1px solid transparent; border-radius: 11px; padding: .62rem .95rem; font-weight: 700; transition: transform 140ms ease, filter 140ms ease; }
+    .button:hover:not(:disabled) { filter: brightness(1.04); transform: translateY(-1px); }
+    .button-primary { background: var(--burgundy); color: white; }
+    .button-soft { border-color: #e8c9c2; background: #fbefeb; color: var(--burgundy); }
+    .button-quiet { border-color: var(--line); background: transparent; color: var(--ink); }
+    .button-danger { border-color: #efc9c5; background: #fff1ef; color: #923d48; }
+    .button-small { min-height: 2.2rem; padding: .4rem .7rem; font-size: .83rem; }
+    .full-width { width: 100%; }
+    .status { min-height: 1.4em; margin: .8rem 0 0; color: var(--muted); font-size: .9rem; }
+    .status[data-kind="error"] { color: #a33843; }
+    .status[data-kind="success"] { color: var(--green); }
+    [hidden] { display: none !important; }
+    .tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: .65rem; margin: 0 0 1.1rem; padding: .45rem; border: 1px solid var(--line); border-radius: 16px; background: #f5eae1; }
+    .tab { min-height: 2.9rem; border: 1px solid transparent; border-radius: 12px; background: transparent; color: var(--muted); font-weight: 700; }
+    .tab[aria-selected="true"] { border-color: #ead0c9; background: var(--paper); color: var(--burgundy); box-shadow: 0 3px 12px rgb(83 48 42 / 6%); }
+    .workspace { display: grid; grid-template-columns: minmax(0, .95fr) minmax(0, 1.05fr); gap: 1.1rem; align-items: start; }
+    .picker-card, .list-card { padding: clamp(1.1rem, 3vw, 1.65rem); }
+    .section-heading { display: flex; align-items: start; justify-content: space-between; gap: .8rem; margin-bottom: 1rem; }
+    .section-heading h2 { margin: 0; color: var(--burgundy); font-family: Georgia, serif; font-size: 1.55rem; font-weight: 500; }
+    .count { flex: 0 0 auto; border: 1px solid #ead8cf; border-radius: 999px; padding: .32rem .62rem; background: #fcf2eb; color: var(--muted); font-size: .78rem; font-weight: 700; }
+    .picker-intro { margin: -.25rem 0 1rem; color: var(--muted); font-size: .91rem; line-height: 1.5; }
+    .avoid-label { display: flex; align-items: center; gap: .55rem; margin: 1rem 0 .7rem; color: var(--muted); font-size: .87rem; }
+    .avoid-label input { width: 1rem; height: 1rem; accent-color: var(--burgundy); }
+    .pick-button { width: 100%; min-height: 3.2rem; background: var(--rose); color: #fff; font-size: 1rem; }
+    .result { min-height: 10rem; margin-top: 1rem; border: 1px solid #eed9d1; border-radius: 15px; padding: 1rem; background: linear-gradient(140deg, #fff8f1, #fbefeb); }
+    .result[data-spinning="true"] { animation: pulse 650ms ease-in-out infinite alternate; }
+    .result-empty { display: grid; min-height: 8rem; place-content: center; color: var(--muted); text-align: center; line-height: 1.5; }
+    .result-kicker { margin: 0 0 .35rem; color: var(--rose); font-size: .72rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+    .result h3 { margin: 0 0 .6rem; color: var(--burgundy); font-family: Georgia, serif; font-size: 1.55rem; font-weight: 500; overflow-wrap: anywhere; }
+    .result-details { display: grid; gap: .3rem; margin: 0; color: var(--muted); font-size: .9rem; line-height: 1.4; }
+    .result-actions { display: flex; flex-wrap: wrap; gap: .55rem; margin-top: .9rem; }
+    .places-heading { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: .95rem; }
+    .places-heading h2 { margin: 0; color: var(--burgundy); font-family: Georgia, serif; font-size: 1.45rem; font-weight: 500; }
+    .place-list { display: grid; gap: .7rem; margin: 0; padding: 0; list-style: none; }
+    .place { display: flex; justify-content: space-between; gap: .9rem; border: 1px solid var(--line); border-radius: 14px; padding: .9rem; background: #fffefa; }
+    .place-info { min-width: 0; }
+    .place h3 { margin: 0; color: var(--ink); font-size: 1rem; overflow-wrap: anywhere; }
+    .place p { margin: .25rem 0 0; color: var(--muted); font-size: .84rem; line-height: 1.4; overflow-wrap: anywhere; }
+    .place-actions { display: flex; flex: 0 0 auto; align-items: start; gap: .4rem; }
+    .empty-list { margin: 0; border: 1px dashed #ddc8bf; border-radius: 13px; padding: 1.2rem; color: var(--muted); font-size: .91rem; line-height: 1.5; text-align: center; }
+    .form-wrap { margin-top: 1rem; border-top: 1px solid var(--line); padding-top: 1rem; }
+    .form-wrap h3 { margin: 0 0 .9rem; color: var(--burgundy); font-size: 1rem; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; }
+    .field-wide { grid-column: 1 / -1; }
+    .form-actions { display: flex; flex-wrap: wrap; gap: .55rem; }
+    .history { margin-top: 1.1rem; border-top: 1px solid var(--line); padding-top: 1rem; }
+    .history h3 { margin: 0 0 .7rem; color: var(--burgundy); font-family: Georgia, serif; font-size: 1.15rem; font-weight: 500; }
+    .history-list { display: grid; gap: .5rem; margin: 0; padding: 0; list-style: none; }
+    .history-item { display: flex; justify-content: space-between; gap: .7rem; border-radius: 10px; padding: .6rem .7rem; background: #faf2ec; font-size: .82rem; }
+    .history-item strong { color: var(--ink); }
+    .history-meta { flex: 0 0 auto; color: var(--muted); text-align: right; }
+    .history-empty { margin: 0; color: var(--muted); font-size: .86rem; }
+    .footer-note { margin: 1.2rem 0 0; color: var(--muted); font-size: .8rem; line-height: 1.5; }
+    @keyframes pulse { from { box-shadow: 0 0 0 rgb(166 78 91 / 0%); } to { box-shadow: 0 0 22px rgb(166 78 91 / 16%); } }
+    @media (max-width: 760px) {
+      .hero { align-items: start; flex-direction: column; gap: .8rem; }
+      .hero-note { max-width: none; text-align: left; }
+      .workspace { grid-template-columns: 1fr; }
+      .picker-card { order: 0; }
+      .list-card { order: 1; }
     }
-
-    body {
-      display: grid;
-      min-height: 100vh;
-      min-height: 100dvh;
-      margin: 0;
-      padding: 2rem 1rem;
-      place-items: center;
-      background:
-        radial-gradient(ellipse at 50% 0%, rgb(114 64 210 / 17%), transparent 55%),
-        #10111b;
+    @media (max-width: 480px) {
+      .shell { width: min(100% - 1.1rem, 1120px); padding-top: 1rem; }
+      .tabs { gap: .25rem; padding: .3rem; }
+      .tab { padding: .35rem .15rem; font-size: .85rem; }
+      .form-grid { grid-template-columns: 1fr; }
+      .field-wide { grid-column: auto; }
+      .place { flex-direction: column; }
+      .place-actions { justify-content: flex-end; }
+      .topbar { margin-bottom: 1.3rem; }
     }
-
-    main {
-      width: min(100%, 560px);
-      padding: clamp(1.5rem, 6vw, 3rem);
-      border: 1px solid #2c2d40;
-      border-radius: 24px;
-      background: rgb(25 26 40 / 92%);
-      box-shadow: 0 24px 80px rgb(0 0 0 / 30%);
-    }
-
-    header {
-      margin-bottom: 2rem;
-      text-align: center;
-    }
-
-    h1 {
-      margin: 0;
-      color: #bba4ff;
-      font-size: clamp(2.5rem, 10vw, 4rem);
-      letter-spacing: -0.06em;
-      line-height: 1.1;
-    }
-
-    header p {
-      margin: 0.75rem 0 0;
-      color: #b8b8c9;
-      font-size: 1rem;
-    }
-
-    h2 {
-      margin: 1.75rem 0 0.75rem;
-      font-size: 1.05rem;
-    }
-
-    .add-form {
-      display: flex;
-      gap: 0.65rem;
-    }
-
-    input {
-      min-width: 0;
-      flex: 1;
-      border: 1px solid #414257;
-      border-radius: 12px;
-      padding: 0.85rem 1rem;
-      background: #141520;
-      color: #f4f3ff;
-      font: inherit;
-    }
-
-    input::placeholder {
-      color: #88899d;
-    }
-
-    input:focus-visible,
-    button:focus-visible {
-      outline: 3px solid #bba4ff;
-      outline-offset: 3px;
-    }
-
-    button {
-      border: 0;
-      border-radius: 12px;
-      padding: 0.8rem 1rem;
-      color: #10111b;
-      font: inherit;
-      font-weight: 700;
-      cursor: pointer;
-      transition: filter 150ms ease, transform 150ms ease;
-    }
-
-    button:hover {
-      filter: brightness(1.1);
-      transform: translateY(-1px);
-    }
-
-    button:active {
-      transform: translateY(0);
-    }
-
-    button:disabled,
-    input:disabled {
-      cursor: not-allowed;
-      opacity: 0.65;
-    }
-
-    .add-button {
-      flex-shrink: 0;
-      background: #55e6b5;
-    }
-
-    .game-list {
-      display: grid;
-      gap: 0.6rem;
-      margin: 0;
-      padding: 0;
-      list-style: none;
-    }
-
-    .game-list li {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1rem;
-      min-height: 3.25rem;
-      border: 1px solid #323347;
-      border-radius: 12px;
-      padding: 0.5rem 0.6rem 0.5rem 1rem;
-      background: #202132;
-      overflow-wrap: anywhere;
-    }
-
-    .result.is-winner {
-      animation: winner-glow 650ms ease-out;
-    }
-
-    @keyframes winner-glow {
-      0% {
-        box-shadow: 0 0 0 rgb(255 226 122 / 0%);
-        transform: scale(1);
-      }
-      45% {
-        box-shadow: 0 0 28px rgb(255 226 122 / 45%);
-        transform: scale(1.03);
-      }
-      100% {
-        box-shadow: 0 0 0 rgb(255 226 122 / 0%);
-        transform: scale(1);
-      }
-    }
-
-    .history-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1rem;
-    }
-
-    .history-header h2 {
-      margin-bottom: 0.75rem;
-    }
-
-    .clear-button {
-      flex-shrink: 0;
-      padding: 0.5rem 0.7rem;
-      background: #414257;
-      color: #f4f3ff;
-      font-size: 0.8rem;
-    }
-
-    .history-list {
-      display: grid;
-      gap: 0.6rem;
-      margin: 0;
-      padding: 0;
-      list-style: none;
-    }
-
-    .history-list li,
-    .empty-history {
-      border: 1px solid #323347;
-      border-radius: 12px;
-      padding: 0.75rem 1rem;
-      background: #202132;
-    }
-
-    .history-list li {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1rem;
-    }
-
-    .history-time {
-      flex-shrink: 0;
-      color: #aaaabd;
-      font-size: 0.8rem;
-      text-align: right;
-    }
-
-    .empty-history {
-      margin: 0;
-      color: #aaaabd;
-      font-size: 0.9rem;
-      text-align: center;
-    }
-
-    .remove-button {
-      flex-shrink: 0;
-      padding: 0.55rem 0.75rem;
-      background: #ff7185;
-      font-size: 0.85rem;
-    }
-
-    .game-details {
-      display: grid;
-      gap: 0.2rem;
-    }
-
-    .game-genre {
-      color: #aaaabd;
-      font-size: 0.8rem;
-    }
-
-    .empty-list,
-    .feedback {
-      color: #aaaabd;
-      font-size: 0.9rem;
-    }
-
-    .empty-list {
-      margin: 0;
-      padding: 1rem;
-      border: 1px dashed #414257;
-      border-radius: 12px;
-      text-align: center;
-    }
-
-    .feedback {
-      min-height: 1.4em;
-      margin: 0.65rem 0 0;
-    }
-
-    .decide-button {
-      width: 100%;
-      margin-top: 1.5rem;
-      padding: 1rem;
-      background: #a98aff;
-      font-size: 1.05rem;
-    }
-
-    .result {
-      min-height: 3.5rem;
-      margin: 1rem 0 0;
-      border-radius: 14px;
-      padding: 1rem;
-      background: #141520;
-      color: #ffe27a;
-      font-size: 1.15rem;
-      font-weight: 700;
-      text-align: center;
-      overflow-wrap: anywhere;
-    }
-
-    @media (max-width: 420px) {
-      .add-form {
-        flex-direction: column;
-      }
-    }
-
     @media (prefers-reduced-motion: reduce) {
-      *,
-      *::before,
-      *::after {
-        scroll-behavior: auto !important;
-        transition-duration: 0.01ms !important;
-        animation-duration: 0.01ms !important;
-      }
+      *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
     }
   </style>
 </head>
 <body>
-  <main>
-    <!-- App title and subtitle -->
-    <header>
-      <h1>Game Decider</h1>
-      <p>Can’t decide what to play? Let us choose!</p>
+  <main class="shell">
+    <div class="topbar">
+      <div class="brand"><span class="brand-mark" aria-hidden="true">♡</span><span>our Toronto date list</span></div>
+      <div class="connection" id="connection-status" data-state="connected" role="status">Saved on this device</div>
+    </div>
+
+    <header class="hero">
+      <div>
+        <h1>Eatery Picker</h1>
+        <p>What are we craving today?</p>
+      </div>
+      <div class="hero-note">A little shared list for deciding where our next date takes us.</div>
     </header>
 
-    <!-- Game entry form and game list -->
-    <form class="add-form" id="add-form">
-      <input
-        id="game-input"
-        type="text"
-        placeholder="Enter a game name"
-        aria-label="Game name"
-        autocomplete="off"
-      >
-      <button class="add-button" type="submit">Add Game</button>
-    </form>
-    <p class="feedback" id="feedback" aria-live="polite"></p>
-
-    <section aria-labelledby="games-heading">
-      <h2 id="games-heading">Your games</h2>
-      <ul class="game-list" id="game-list"></ul>
-      <p class="empty-list" id="empty-list">No games added yet. Add one above!</p>
-    </section>
-
-    <!-- Random selection and result message -->
-    <button class="decide-button" id="decide-button" type="button">Decide for Me</button>
-    <p class="result" id="result" aria-live="polite">Your next game will appear here.</p>
-
-    <!-- Recent results are saved in this browser and shown newest first. -->
-    <section aria-labelledby="history-heading">
-      <div class="history-header">
-        <h2 id="history-heading">Recent Decisions</h2>
-        <button class="clear-button" id="clear-history-button" type="button">Clear History</button>
+    <section id="app-view">
+      <p class="picker-intro">Your list is saved in this browser on this device. It won’t sync to other devices.</p>
+      <nav class="tabs" role="tablist" aria-label="Food and drink categories" id="category-tabs"></nav>
+      <p class="status" id="app-status" aria-live="polite"></p>
+      <div class="workspace">
+        <section class="picker-card" id="picker-panel" aria-live="polite"></section>
+        <section class="list-card" id="list-panel"></section>
       </div>
-      <ul class="history-list" id="history-list"></ul>
-      <p class="empty-history" id="empty-history">No decisions yet</p>
+      <p class="footer-note">We don’t track opening hours. Check the establishment’s own site before heading out.</p>
     </section>
   </main>
 
   <script>
-    // These starter games are used only the first time the app runs.
-    const starterGames = [
-      { name: "Valorant", genre: "Tactical shooter" },
-      { name: "Counter-Strike 2", genre: "Tactical shooter" },
-      { name: "Fortnite", genre: "Battle royale" },
-      { name: "Apex Legends", genre: "Battle royale" },
-      { name: "League of Legends", genre: "MOBA" },
-      { name: "Marvel Rivals", genre: "Hero shooter" },
-      { name: "PUBG: Battlegrounds", genre: "Battle royale" },
-      { name: "Valheim", genre: "Survival" },
-      { name: "Enshrouded", genre: "Survival RPG" },
-      { name: "Warframe", genre: "Action RPG" },
-      { name: "ARC Raiders", genre: "Extraction shooter" },
-      { name: "Bongo Cat", genre: "Casual" },
-      { name: "Torchlight: Infinite", genre: "Action RPG" },
-      { name: "No Rest for the Wicked", genre: "Action RPG" },
-      { name: "The Last Caretaker", genre: "Survival" }
+  const STORAGE_KEY = "eateryPickerLocalData";
+    const categories = [
+      { id: "desserts", label: "Desserts", pick: "Pick Our Dessert" },
+      { id: "lunch", label: "Lunch", pick: "Pick Our Lunch" },
+      { id: "dinner", label: "Dinner", pick: "Pick Our Dinner" },
+      { id: "drinks", label: "Drinks", pick: "Pick Our Drinks" }
     ];
-    const gamesStorageKey = "gameDeciderGames";
-    const historyStorageKey = "gameDeciderHistory";
-    const savedGames = localStorage.getItem(gamesStorageKey);
-    const games = savedGames === null
-      ? starterGames.map((game) => ({ ...game }))
-      : JSON.parse(savedGames);
-    let history = JSON.parse(localStorage.getItem(historyStorageKey) || "[]");
-    let isAnimating = false;
-    const form = document.querySelector("#add-form");
-    const gameInput = document.querySelector("#game-input");
-    const gameList = document.querySelector("#game-list");
-    const emptyList = document.querySelector("#empty-list");
-    const feedback = document.querySelector("#feedback");
-    const decideButton = document.querySelector("#decide-button");
-    const result = document.querySelector("#result");
-    const historyList = document.querySelector("#history-list");
-    const emptyHistory = document.querySelector("#empty-history");
-    const clearHistoryButton = document.querySelector("#clear-history-button");
+    const appStatus = document.querySelector("#app-status");
+    const connectionStatus = document.querySelector("#connection-status");
+    const tabs = document.querySelector("#category-tabs");
+    const pickerPanel = document.querySelector("#picker-panel");
+    const listPanel = document.querySelector("#list-panel");
+    const state = { places: [], history: [], activeCategory: "desserts", editingId: null, previousPicks: {}, isPicking: false, isSaving: false, displayedPick: null, storageReady: false };
+    const torontoTime = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Toronto", dateStyle: "medium", timeStyle: "short" });
 
-    // Save the whole game list so removed games and an intentionally empty list stay saved.
-    function saveGames() {
-      localStorage.setItem(gamesStorageKey, JSON.stringify(games));
+    function setStatus(element, message, kind = "") {
+      element.textContent = message;
+      element.dataset.kind = kind;
     }
 
-    // Rebuild the visible list and include each game's genre.
-    function renderGames() {
-      gameList.replaceChildren();
-      emptyList.hidden = games.length > 0;
-      gameInput.disabled = isAnimating;
-      form.querySelector("button").disabled = isAnimating;
-
-      games.forEach((game, index) => {
-        const item = document.createElement("li");
-        const details = document.createElement("span");
-        const name = document.createElement("span");
-        const genre = document.createElement("span");
-        const removeButton = document.createElement("button");
-
-        name.textContent = game.name;
-        genre.className = "game-genre";
-        genre.textContent = game.genre;
-        details.className = "game-details";
-        details.append(name, genre);
-        removeButton.className = "remove-button";
-        removeButton.type = "button";
-        removeButton.textContent = "Remove";
-        removeButton.disabled = isAnimating;
-        removeButton.setAttribute("aria-label", `Remove ${game.name}`);
-        removeButton.addEventListener("click", () => {
-          if (isAnimating) return;
-          games.splice(index, 1);
-          saveGames();
-          renderGames();
-          feedback.textContent = "";
-          result.textContent = "Your next game will appear here.";
-        });
-
-        item.append(details, removeButton);
-        gameList.append(item);
-      });
+    function setConnection(message, status) {
+      connectionStatus.textContent = message;
+      connectionStatus.dataset.state = status;
     }
 
-    // Display the five most recent picks, with their local date and time.
-    function renderHistory() {
-      historyList.replaceChildren();
-      emptyHistory.hidden = history.length > 0;
-
-      history.forEach((decision) => {
-        const item = document.createElement("li");
-        const gameName = document.createElement("span");
-        const time = document.createElement("time");
-
-        gameName.textContent = decision.name;
-        time.className = "history-time";
-        time.textContent = decision.time;
-        item.append(gameName, time);
-        historyList.append(item);
-      });
-    }
-
-    // Keep the stored history limited to the five entries shown on the page.
-    function saveHistory() {
-      localStorage.setItem(historyStorageKey, JSON.stringify(history));
-    }
-
-    // Finish the spin, show a brief highlight, and save only its final winner.
-    function revealWinner(winner) {
-      result.textContent = `You should play: ${winner.name}!`;
-      result.classList.remove("is-winner");
-      void result.offsetWidth;
-      result.classList.add("is-winner");
-      history.unshift({ name: winner.name, time: new Date().toLocaleString() });
-      history = history.slice(0, 5);
-      saveHistory();
-      renderHistory();
-      isAnimating = false;
-      decideButton.disabled = false;
-      renderGames();
-    }
-
-    // Submit handles both clicking Add Game and pressing Enter in the input.
-    form.addEventListener("submit", (event) => {
-      event.preventDefault();
-      if (isAnimating) return;
-      const game = gameInput.value.trim();
-
-      if (!game) {
-        feedback.textContent = "Please enter a game name.";
-        gameInput.focus();
-        return;
+    function saveLocalData() {
+      if (!state.storageReady) {
+        setConnection("Local storage unavailable", "error");
+        setStatus(appStatus, "Saved data could not be loaded, so changes are disabled to avoid overwriting it.", "error");
+        return false;
       }
-
-      const alreadyExists = games.some(
-        (existingGame) => existingGame.name.toLocaleLowerCase() === game.toLocaleLowerCase()
-      );
-
-      if (alreadyExists) {
-        feedback.textContent = "That game is already on your list.";
-        gameInput.focus();
-        return;
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+          places: state.places,
+          history: state.history.slice(0, 40)
+        }));
+        setConnection("Saved on this device", "connected");
+        return true;
+      } catch (error) {
+        setConnection("Local save failed", "error");
+        setStatus(appStatus, `Could not save your data in this browser: ${error.message}`, "error");
+        return false;
       }
+    }
 
-      games.push({ name: game, genre: "Custom" });
-      saveGames();
-      gameInput.value = "";
-      feedback.textContent = "";
-      result.textContent = "Your next game will appear here.";
-      renderGames();
-      gameInput.focus();
-    });
-
-    // Animate through choices for about three seconds unless reduced motion is preferred.
-    decideButton.addEventListener("click", () => {
-      if (isAnimating) return;
-      if (games.length === 0) {
-        result.textContent = "Please add at least one game first.";
-        return;
-      }
-
-      const winner = games[Math.floor(Math.random() * games.length)];
-      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-        revealWinner(winner);
-        return;
-      }
-
-      isAnimating = true;
-      decideButton.disabled = true;
-      renderGames();
-      result.classList.remove("is-winner");
-      const startTime = performance.now();
-      const duration = 3000;
-
-      function spin() {
-        const elapsed = performance.now() - startTime;
-        if (elapsed >= duration) {
-          revealWinner(winner);
+    function loadLocalData() {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved === null) {
+          state.storageReady = true;
           return;
         }
-
-        const preview = games[Math.floor(Math.random() * games.length)];
-        result.textContent = `Choosing... ${preview.name}`;
-        const progress = elapsed / duration;
-        const nextDelay = 45 + (progress * progress * 240);
-        window.setTimeout(spin, nextDelay);
+        const data = JSON.parse(saved);
+        if (!data || !Array.isArray(data.places) || !Array.isArray(data.history)) {
+          throw new Error("The saved data has an unexpected format.");
+        }
+        state.places = data.places;
+        state.history = data.history;
+        state.storageReady = true;
+      } catch (error) {
+        state.storageReady = false;
+        setConnection("Could not load local data", "error");
+        setStatus(appStatus, `Could not load saved data from this browser: ${error.message}`, "error");
       }
+    }
 
-      spin();
-    });
+    function createId() {
+      return typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    }
 
-    clearHistoryButton.addEventListener("click", () => {
-      history = [];
-      saveHistory();
+    function currentCategory() {
+      return categories.find((category) => category.id === state.activeCategory);
+    }
+
+    function currentPlaces() {
+      return state.places.filter((place) => place.section === state.activeCategory);
+    }
+
+    function normalizedName(name) {
+      return name.trim().replace(/\s+/g, " ").toLocaleLowerCase();
+    }
+
+    function make(tag, className, text) {
+      const element = document.createElement(tag);
+      if (className) element.className = className;
+      if (text !== undefined) element.textContent = text;
+      return element;
+    }
+
+    function safeExternalUrl(value) {
+      if (!value) return null;
+      try {
+        const url = new URL(value);
+        return url.protocol === "https:" || url.protocol === "http:" ? url.href : null;
+      } catch {
+        return null;
+      }
+    }
+
+    function mapsUrl(place) {
+      const supplied = safeExternalUrl(place.website_url);
+      if (supplied && /google\.[^/]+\/maps|maps\.app\.goo\.gl|maps\.google\./i.test(supplied)) return supplied;
+      const query = [place.name, place.address].filter(Boolean).join(" ");
+      return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+    }
+
+    function makeLink(label, href, className = "button button-soft button-small") {
+      const link = make("a", className, label);
+      link.href = href;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      return link;
+    }
+
+    function renderTabs() {
+      tabs.replaceChildren();
+      categories.forEach((category) => {
+        const count = state.places.filter((place) => place.section === category.id).length;
+        const button = make("button", "tab", `${category.label} · ${count}`);
+        button.type = "button";
+        button.id = `tab-${category.id}`;
+        button.setAttribute("role", "tab");
+        button.setAttribute("aria-selected", String(category.id === state.activeCategory));
+        button.setAttribute("aria-controls", "picker-panel");
+        button.tabIndex = category.id === state.activeCategory ? 0 : -1;
+        button.addEventListener("click", () => selectCategory(category.id));
+        button.addEventListener("keydown", (event) => {
+          if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+          event.preventDefault();
+          const direction = event.key === "ArrowRight" ? 1 : -1;
+          const next = (categories.findIndex((item) => item.id === category.id) + direction + categories.length) % categories.length;
+          selectCategory(categories[next].id);
+          tabs.querySelectorAll('[role="tab"]')[next].focus();
+        });
+        tabs.append(button);
+      });
+    }
+
+    function selectCategory(categoryId) {
+      state.activeCategory = categoryId;
+      state.editingId = null;
+      render();
+    }
+
+    function renderResultContent(container, place, isSpinning = false) {
+      container.replaceChildren();
+      container.dataset.spinning = String(isSpinning);
+      if (!place) {
+        const empty = make("div", "result-empty", currentPlaces().length
+          ? "Your next date-night pick will show up here."
+          : `Add a ${currentCategory().label.toLowerCase()} spot to get started.`);
+        container.append(empty);
+        return;
+      }
+      container.append(make("p", "result-kicker", isSpinning ? "Choosing a little treat…" : "Our pick"));
+      container.append(make("h3", "", place.name));
+      const details = make("div", "result-details");
+      [[place.address, "Location"], [place.specialty, "Specialty"], [place.price_range, "Price"], [place.notes, "Note"]]
+        .filter(([value]) => value)
+        .forEach(([value, label]) => details.append(make("p", "", `${label}: ${value}`)));
+      container.append(details);
+      if (!isSpinning && !state.isPicking) {
+        const actions = make("div", "result-actions");
+        actions.append(makeLink("Open in Maps", mapsUrl(place)));
+        const again = make("button", "button button-quiet button-small", "Pick Again");
+        again.type = "button";
+        again.disabled = state.isPicking;
+        again.addEventListener("click", pickPlace);
+        actions.append(again);
+        container.append(actions);
+      }
+    }
+
+    function renderPicker() {
+      const category = currentCategory();
+      const places = currentPlaces();
+      pickerPanel.replaceChildren();
+      pickerPanel.setAttribute("role", "tabpanel");
+      pickerPanel.setAttribute("aria-labelledby", `tab-${category.id}`);
+      const heading = make("div", "section-heading");
+      heading.append(make("h2", "", category.label), make("span", "count", `${places.length} ${places.length === 1 ? "place" : "places"}`));
+      pickerPanel.append(heading);
+      pickerPanel.append(make("p", "picker-intro", "Let the list decide, or add a new idea for your next date."));
+      const avoidLabel = make("label", "avoid-label");
+      const avoid = document.createElement("input");
+      avoid.type = "checkbox";
+      avoid.id = "avoid-previous";
+      avoid.checked = document.querySelector("#avoid-previous")?.checked || false;
+      avoid.disabled = state.isPicking || places.length < 2;
+      avoidLabel.append(avoid, make("span", "", "Avoid the previous pick"));
+      pickerPanel.append(avoidLabel);
+      const pickButton = make("button", "button pick-button", category.pick);
+      pickButton.type = "button";
+      pickButton.disabled = state.isPicking || state.isSaving;
+      pickButton.addEventListener("click", pickPlace);
+      pickerPanel.append(pickButton);
+      const result = make("div", "result");
+      result.id = "pick-result";
+      result.setAttribute("aria-live", "polite");
+      const displayed = state.displayedPick?.section === category.id ? state.displayedPick.place : null;
+      renderResultContent(result, displayed, state.isPicking && Boolean(displayed));
+      pickerPanel.append(result);
       renderHistory();
-    });
+    }
 
-    // Persist the starter list on first load, then restore both saved sections.
-    if (savedGames === null) saveGames();
-    renderGames();
-    renderHistory();
+    function renderHistory() {
+      const sectionHistory = state.history.filter((item) => item.section === state.activeCategory);
+      const history = make("section", "history");
+      history.setAttribute("aria-labelledby", "history-heading");
+      const heading = make("h3", "", "Our recent picks");
+      heading.id = "history-heading";
+      history.append(heading);
+      const list = make("ul", "history-list");
+      if (!sectionHistory.length) {
+        history.append(make("p", "history-empty", "No picks yet — your first one is waiting."));
+      } else {
+        sectionHistory.slice(0, 10).forEach((item) => {
+          const row = make("li", "history-item");
+          const name = make("strong", "", item.establishment_name);
+          const who = "Anonymous";
+          const meta = make("span", "history-meta", `${who} · ${torontoTime.format(new Date(item.created_at))}`);
+          row.append(name, meta);
+          list.append(row);
+        });
+        history.append(list);
+      }
+      pickerPanel.append(history);
+    }
+
+    function renderPlace(place) {
+      const item = make("li", "place");
+      const info = make("div", "place-info");
+      info.append(make("h3", "", place.name));
+      const metadata = [place.address, place.specialty, place.price_range, place.notes].filter(Boolean);
+      if (metadata.length) info.append(make("p", "", metadata.join(" · ")));
+      item.append(info);
+      const actions = make("div", "place-actions");
+      const edit = make("button", "button button-quiet button-small", "Edit");
+      edit.type = "button";
+      edit.disabled = state.isPicking || state.isSaving;
+      edit.setAttribute("aria-label", `Edit ${place.name}`);
+      edit.addEventListener("click", () => { state.editingId = place.id; renderList(); });
+      const remove = make("button", "button button-danger button-small", "Delete");
+      remove.type = "button";
+      remove.disabled = state.isPicking || state.isSaving;
+      remove.setAttribute("aria-label", `Delete ${place.name}`);
+      remove.addEventListener("click", () => deletePlace(place));
+      actions.append(edit, remove);
+      item.append(actions);
+      return item;
+    }
+
+    function buildPlaceForm(existing = null) {
+      const wrap = make("div", "form-wrap");
+      wrap.append(make("h3", "", existing ? "Edit this place" : "Add a place"));
+      const form = make("form", "eatery-form");
+      form.id = "place-form";
+      const grid = make("div", "form-grid");
+      const fields = [
+        ["name", "Establishment name", "text", true, "e.g. Somewhere you love"],
+        ["address", "Toronto address or neighborhood", "text", false, "Neighborhood or street address"],
+        ["specialty", "Cuisine or specialty", "text", false, "e.g. noodles, pastries"],
+        ["price_range", "Price range", "select", false, ""],
+        ["website_url", "Website or Google Maps link", "url", false, "https://"],
+        ["notes", "Personal notes", "textarea", false, "A little reminder for next time"]
+      ];
+      fields.forEach(([key, labelText, type, required, placeholder]) => {
+        const field = make("div", key === "notes" ? "field field-wide" : "field");
+        const inputId = `place-${key}`;
+        const label = make("label", "", labelText);
+        label.htmlFor = inputId;
+        let input;
+        if (type === "select") {
+          input = document.createElement("select");
+          [["", "Choose…"], ["$", "$"], ["$$", "$$"], ["$$$", "$$$"]].forEach(([value, text]) => {
+            const option = document.createElement("option");
+            option.value = value;
+            option.textContent = text;
+            input.append(option);
+          });
+        } else if (type === "textarea") {
+          input = document.createElement("textarea");
+        } else {
+          input = document.createElement("input");
+          input.type = type;
+        }
+        input.id = inputId;
+        input.name = key;
+        input.required = required;
+        if (placeholder) input.placeholder = placeholder;
+        input.value = existing?.[key] || "";
+        field.append(label, input);
+        grid.append(field);
+      });
+      const actions = make("div", "form-actions field-wide");
+      const submit = make("button", "button button-primary", existing ? "Save changes" : "Add to list");
+      submit.type = "submit";
+      submit.disabled = state.isSaving || state.isPicking;
+      actions.append(submit);
+      if (existing) {
+        const cancel = make("button", "button button-quiet", "Cancel");
+        cancel.type = "button";
+        cancel.addEventListener("click", () => { state.editingId = null; renderList(); });
+        actions.append(cancel);
+      }
+      grid.append(actions);
+      form.append(grid);
+      form.addEventListener("submit", (event) => savePlace(event, existing));
+      wrap.append(form);
+      return wrap;
+    }
+
+    function renderList() {
+      const category = currentCategory();
+      const places = currentPlaces();
+      listPanel.replaceChildren();
+      const heading = make("div", "places-heading");
+      heading.append(make("h2", "", "Saved places"), make("span", "count", `${places.length} saved`));
+      listPanel.append(heading);
+      if (places.length) {
+        const list = make("ul", "place-list");
+        places.forEach((place) => {
+          list.append(renderPlace(place));
+          if (state.editingId === place.id) list.append(buildPlaceForm(place));
+        });
+        listPanel.append(list);
+      } else {
+        listPanel.append(make("p", "empty-list", `Your ${category.label.toLowerCase()} list is empty. Add a place you already know and love — no suggestions are pre-filled.`));
+      }
+      if (!state.editingId) listPanel.append(buildPlaceForm());
+    }
+
+    function render() {
+      renderTabs();
+      renderPicker();
+      renderList();
+    }
+
+    async function savePlace(event, existing) {
+      event.preventDefault();
+      if (state.isSaving || state.isPicking) return;
+      const formData = new FormData(event.currentTarget);
+      const name = String(formData.get("name") || "").trim().replace(/\s+/g, " ");
+      if (!name) {
+        setStatus(appStatus, "Please enter an establishment name.", "error");
+        event.currentTarget.elements.name.focus();
+        return;
+      }
+      const duplicate = state.places.some((place) =>
+        place.section === state.activeCategory && place.id !== existing?.id && normalizedName(place.name) === normalizedName(name));
+      if (duplicate) {
+        setStatus(appStatus, "That name is already saved in this section (capitalization and extra spaces don’t matter).", "error");
+        event.currentTarget.elements.name.focus();
+        return;
+      }
+      const websiteUrl = String(formData.get("website_url") || "").trim();
+      if (websiteUrl && !safeExternalUrl(websiteUrl)) {
+        setStatus(appStatus, "Enter a valid website or Google Maps URL starting with http:// or https://.", "error");
+        event.currentTarget.elements.website_url.focus();
+        return;
+      }
+      const payload = {
+        id: existing?.id || createId(),
+        section: state.activeCategory,
+        name,
+        address: String(formData.get("address") || "").trim() || null,
+        specialty: String(formData.get("specialty") || "").trim() || null,
+        price_range: String(formData.get("price_range") || "") || null,
+        website_url: websiteUrl || null,
+        notes: String(formData.get("notes") || "").trim() || null
+      };
+      state.isSaving = true;
+      setStatus(appStatus, existing ? "Saving your changes…" : "Saving your place…");
+      renderList();
+      const previousPlaces = state.places;
+      state.places = existing
+        ? state.places.map((place) => place.id === existing.id ? payload : place)
+        : [...state.places, payload];
+      const saved = saveLocalData();
+      state.isSaving = false;
+      if (!saved) {
+        state.places = previousPlaces;
+        render();
+        return;
+      }
+      state.editingId = null;
+      setStatus(appStatus, existing ? "Changes saved." : "Place added.", "success");
+      render();
+    }
+
+    async function deletePlace(place) {
+      if (state.isSaving || state.isPicking || !window.confirm(`Delete “${place.name}” from ${currentCategory().label}? Past picks will stay in your history.`)) return;
+      state.isSaving = true;
+      setStatus(appStatus, "Deleting place…");
+      renderList();
+      const previousPlaces = state.places;
+      state.places = state.places.filter((item) => item.id !== place.id);
+      if (!saveLocalData()) {
+        state.places = previousPlaces;
+        state.isSaving = false;
+        render();
+        return;
+      }
+      state.isSaving = false;
+      state.editingId = null;
+      state.displayedPick = null;
+      setStatus(appStatus, "Place deleted. Past picks remain in history.", "success");
+      render();
+    }
+
+    function pickPool(places) {
+      const avoid = document.querySelector("#avoid-previous")?.checked;
+      const previous = state.history.find((item) => item.section === state.activeCategory)?.establishment_name;
+      if (!avoid || places.length < 2 || !previous) return places;
+      const filtered = places.filter((place) => normalizedName(place.name) !== normalizedName(previous));
+      return filtered.length ? filtered : places;
+    }
+
+    async function pickPlace() {
+      if (state.isPicking || state.isSaving) return;
+      const places = currentPlaces();
+      if (!places.length) {
+        setStatus(appStatus, `Add a ${currentCategory().label.toLowerCase()} place before picking.`, "error");
+        return;
+      }
+      const pool = pickPool(places);
+      const winner = pool[Math.floor(Math.random() * pool.length)];
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      state.isPicking = true;
+      tabs.querySelectorAll("button").forEach((button) => { button.disabled = true; });
+      state.displayedPick = { section: state.activeCategory, place: pool[Math.floor(Math.random() * pool.length)] };
+      renderPicker();
+      if (!reduceMotion && pool.length > 1) {
+        const start = performance.now();
+        while (performance.now() - start < 1700) {
+          await new Promise((resolve) => window.setTimeout(resolve, 120));
+          state.displayedPick = { section: state.activeCategory, place: pool[Math.floor(Math.random() * pool.length)] };
+          renderPicker();
+        }
+      }
+      state.displayedPick = { section: state.activeCategory, place: winner };
+      renderPicker();
+      const previousHistory = state.history;
+      state.history = [{
+        section: state.activeCategory,
+        establishment_name: winner.name,
+        created_at: new Date().toISOString()
+      }, ...state.history];
+      const counts = {};
+      state.history = state.history.filter((item) => {
+        if (!categories.some((category) => category.id === item.section)) return false;
+        counts[item.section] = (counts[item.section] || 0) + 1;
+        return counts[item.section] <= 10;
+      });
+      state.isPicking = false;
+      tabs.querySelectorAll("button").forEach((button) => { button.disabled = false; });
+      if (!saveLocalData()) {
+        state.history = previousHistory;
+        renderPicker();
+        return;
+      }
+      renderPicker();
+      setStatus(appStatus, `${winner.name} is saved in this browser’s history.`, "success");
+    }
+
+    loadLocalData();
+    render();
   </script>
 </body>
 </html>
